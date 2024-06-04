@@ -78,7 +78,6 @@ SECTIONS {
     lib_text :
     ALIGN(4)
     {
-        src/libgcnmultiboot.o(.text);
         src/m4a_1.o(.text);
         src/m4a.o(.text);
         src/agb_flash.o(.text);
@@ -132,7 +131,6 @@ SECTIONS {
     {
         data/multiboot_ereader.o(.rodata);
         data/multiboot_berry_glitch_fix.o(.rodata);
-        data/multiboot_pokemon_colosseum.o(.rodata);
     } > ROM =0
 
     gfx_data :

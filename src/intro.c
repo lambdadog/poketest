@@ -4,11 +4,9 @@
 #include "scanline_effect.h"
 #include "task.h"
 #include "title_screen.h"
-#include "libgcnmultiboot.h"
 #include "malloc.h"
 #include "gpu_regs.h"
 #include "link.h"
-#include "multiboot_pokemon_colosseum.h"
 #include "load_save.h"
 #include "save.h"
 #include "new_game.h"
@@ -27,16 +25,11 @@
     After this it progresses to the title screen
 */
 
-#define COLOSSEUM_GAME_CODE 0x65366347 // "Gc6e" in ASCII
-
-struct GcmbStruct gMultibootProgramStruct;
-
 static void VBlankCB_Intro(void)
 {
     LoadOam();
     ProcessSpriteCopyRequests();
     TransferPlttBuffer();
-    ScanlineEffect_InitHBlankDmaTransfer();
 }
 
 static void LoadCopyrightGraphics(u16 tilesetAddress, u16 tilemapAddress, u16 paletteOffset)
@@ -44,11 +37,6 @@ static void LoadCopyrightGraphics(u16 tilesetAddress, u16 tilemapAddress, u16 pa
     LZ77UnCompVram(gIntroCopyright_Gfx, (void *)(VRAM + tilesetAddress));
     LZ77UnCompVram(gIntroCopyright_Tilemap, (void *)(VRAM + tilemapAddress));
     LoadPalette(gIntroCopyright_Pal, paletteOffset, PLTT_SIZE_4BPP);
-}
-
-static void SerialCB_CopyrightScreen(void)
-{
-    GameCubeMultiBoot_HandleSerialInterrupt(&gMultibootProgramStruct);
 }
 
 static u8 SetUpCopyrightScreen(void)
@@ -82,8 +70,7 @@ static u8 SetUpCopyrightScreen(void)
         EnableInterrupts(INTR_FLAG_VBLANK);
         SetVBlankCallback(VBlankCB_Intro);
         REG_DISPCNT = DISPCNT_MODE_0 | DISPCNT_OBJ_1D_MAP | DISPCNT_BG0_ON;
-        SetSerialCallback(SerialCB_CopyrightScreen);
-        GameCubeMultiBoot_Init(&gMultibootProgramStruct);
+        SetSerialCallback(NULL);
     // REG_DISPCNT needs to be overwritten the second time, because otherwise the intro won't show up on VBA 1.7.2 and John GBA Lite emulators.
     // The REG_DISPCNT overwrite is NOT needed in m-GBA, No$GBA, VBA 1.8.0, My Boy and Pizza Boy GBA emulators.
     case 1:
@@ -91,15 +78,10 @@ static u8 SetUpCopyrightScreen(void)
     default:
         UpdatePaletteFade();
         gMain.state++;
-        GameCubeMultiBoot_Main(&gMultibootProgramStruct);
         break;
     case 140:
-        GameCubeMultiBoot_Main(&gMultibootProgramStruct);
-        if (gMultibootProgramStruct.gcmb_field_2 != 1)
-        {
-            BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
-            gMain.state++;
-        }
+	BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+	gMain.state++;
         break;
     case 141:
         if (UpdatePaletteFade())
@@ -108,25 +90,9 @@ static u8 SetUpCopyrightScreen(void)
 	/* Skip intro */
 	SetMainCallback2(CB2_InitTitleScreen);
 
-        if (gMultibootProgramStruct.gcmb_field_2 != 0)
-        {
-            if (gMultibootProgramStruct.gcmb_field_2 == 2)
-            {
-                // check the multiboot ROM header game code to see if we already did this
-                if (*(u32 *)(EWRAM_START + 0xAC) == COLOSSEUM_GAME_CODE)
-                {
-                    CpuCopy16(&gMultiBootProgram_PokemonColosseum_Start, (void *)EWRAM_START, sizeof(gMultiBootProgram_PokemonColosseum_Start));
-                    *(u32 *)(EWRAM_START + 0xAC) = COLOSSEUM_GAME_CODE;
-                }
-                GameCubeMultiBoot_ExecuteProgram(&gMultibootProgramStruct);
-            }
-        }
-        else
-        {
-            GameCubeMultiBoot_Quit();
-            SetSerialCallback(SerialCB);
-        }
-        return 0;
+	SetSerialCallback(SerialCB);
+
+	return 0;
     }
 
     return 1;
