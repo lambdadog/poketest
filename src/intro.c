@@ -25,6 +25,8 @@
     After this it progresses to the title screen
 */
 
+static void CB2_FreePalestine(void);
+
 static void VBlankCB_Intro(void)
 {
     LoadOam();
@@ -87,10 +89,8 @@ static u8 SetUpCopyrightScreen(void)
         if (UpdatePaletteFade())
             break;
 
-	/* Skip intro */
-	SetMainCallback2(CB2_InitTitleScreen);
-
-	SetSerialCallback(SerialCB);
+	/* Play Palestine flag scene */
+	SetMainCallback2(CB2_FreePalestine);
 
 	return 0;
     }
@@ -116,6 +116,39 @@ void CB2_InitCopyrightScreenAfterBootup(void)
 void CB2_InitCopyrightScreenAfterTitleScreen(void)
 {
     SetUpCopyrightScreen();
+}
+
+const u16 gIntroPalestine_Pal[] = INCBIN_U16("graphics/intro/palestine.gbapal");
+const u32 gIntroPalestine_Gfx[] = INCBIN_U32("graphics/intro/palestine.4bpp.lz");
+const u32 gIntroPalestine_Tilemap[] = INCBIN_U32("graphics/intro/palestine.bin.lz");
+
+void CB2_FreePalestine(void)
+{
+    switch (gMain.state)
+    {
+    case 0:
+	LZ77UnCompVram(gIntroPalestine_Gfx, (void*)VRAM);
+	LZ77UnCompVram(gIntroPalestine_Tilemap, (void *)(VRAM + 0x3800));
+	LoadPalette(gIntroPalestine_Pal, BG_PLTT_ID(0), PLTT_SIZE_4BPP);
+
+	BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, (RGB_BLACK | RGB_ALPHA));
+    default:
+	UpdatePaletteFade();
+	gMain.state++;
+	break;
+    case 220:
+	BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
+	gMain.state++;
+	break;
+    case 221:
+        UpdatePaletteFade();
+	gMain.state++;
+	break;
+    case 255:
+	SetMainCallback2(CB2_InitTitleScreen);
+
+	SetSerialCallback(SerialCB);
+    }
 }
 
 void PanFadeAndZoomScreen(u16 screenX, u16 screenY, u16 zoom, u16 alpha)
